@@ -37,12 +37,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /usr/local/valhalla
-          key: valhalla-${{ runner.os }}-${{ runner.arch }}-v1
+          key: valhalla-${{ runner.os }}-${{ runner.arch }}-valhalla-3.7.0-prime_server-0.13.0
 
       - name: Build and install prime_server
         if: steps.cache-valhalla.outputs.cache-hit != 'true'
         run: |
-          git clone --recurse-submodules https://github.com/kevinkreiser/prime_server.git
+          git clone --recurse-submodules --branch 0.13.0 --depth 1 \
+            https://github.com/kevinkreiser/prime_server.git
           cd prime_server
           ./autogen.sh
           ./configure --prefix=/usr/local/valhalla
@@ -52,7 +53,8 @@ jobs:
       - name: Build and install Valhalla
         if: steps.cache-valhalla.outputs.cache-hit != 'true'
         run: |
-          git clone --recurse-submodules https://github.com/valhalla/valhalla.git
+          git clone --recurse-submodules --branch 3.7.0 --depth 1 \
+            https://github.com/valhalla/valhalla.git
           cd valhalla
           PKG_CONFIG_PATH=/usr/local/valhalla/lib/pkgconfig \
           cmake -B build \
