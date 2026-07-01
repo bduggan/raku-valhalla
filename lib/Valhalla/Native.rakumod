@@ -2,8 +2,21 @@ unit module Valhalla::Native;
 
 use NativeCall;
 
-constant VALHALLA = %?RESOURCES<libraries/valhalla_c>
-  // $*PROGRAM.parent.parent.child('resources/libraries').child($*VM.platform-library-name('valhalla_c'.IO));
+my constant VALHALLA = BEGIN {
+    my $r = %?RESOURCES<libraries/valhalla_c>;
+    my $ok = try { $r.IO ~~ IO::Path && $r.IO.e };
+    if $ok {
+        $r;
+    } else {
+        my $name = $*VM.platform-library-name('valhalla_c'.IO);
+        my $found;
+        for $*PROGRAM.parent, $*PROGRAM.parent.parent -> $base {
+            my $p = $base.child('resources/libraries').child($name);
+            $found = $p and last if $p.e;
+        }
+        $found // die "libvalhalla_c not found in resources/libraries — run `./make dylib` first";
+    }
+}
 
 class ValhallaReader is repr('CPointer') is export { }
 
