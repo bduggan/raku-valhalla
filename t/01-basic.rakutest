@@ -1,11 +1,12 @@
 use Test;
 use Valhalla::Native;
 
+plan 3;
+
 my $conf = $*HOME.child('valhalla-run').child('valhalla.json');
 
 unless $conf.IO.e {
     skip-rest "Valhalla configuration file not found: $conf";
-    done-testing;
     exit;
 }
 
