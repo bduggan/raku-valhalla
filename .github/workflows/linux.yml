@@ -22,20 +22,30 @@ jobs:
       - uses: Raku/setup-raku@v1
         with:
           raku-version: ${{ matrix.raku-version }}
-      - name: Install Valhalla
-        run: |
-          sudo add-apt-repository -y ppa:valhalla-core/valhalla
-          sudo apt-get update
-          sudo apt-get install -y libvalhalla-dev pkg-config clang
-      - name: Build shared library
+      - name: Build shared library (in Valhalla container)
         run: |
           mkdir -p resources/libraries
-          CFLAGS=$(pkg-config --cflags libvalhalla)
-          LIBS=$(pkg-config --libs libvalhalla)
-          clang++ -std=c++20 -fPIC -shared \
-            -o resources/libraries/libvalhalla_c.so \
-            valhalla_c_api.cpp \
-            $CFLAGS $LIBS
+          docker run --rm -v "$PWD:/w" -w /w ghcr.io/valhalla/valhalla:latest bash -c '
+            set -e
+            apt-get -qq update
+            DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+              clang pkg-config \
+              zlib1g-dev libprotobuf-dev libzmq3-dev libczmq-dev libcurl4-openssl-dev libboost-dev \
+              libspatialite-dev libsqlite3-dev libluajit-5.1-dev libgeos-dev libssl-dev libtiff-dev liblz4-dev
+            CFLAGS=$(pkg-config --cflags libvalhalla)
+            clang++ -std=c++20 -fPIC -shared \
+              -o resources/libraries/libvalhalla_c.so \
+              valhalla_c_api.cpp \
+              $CFLAGS \
+              -L/usr/local/lib \
+              -Wl,-Bstatic -lvalhalla -lprime_server -Wl,-Bdynamic \
+              -lprotobuf-lite -lzmq -lz -lcurl -lssl -lcrypto
+            chown -R $(stat -c "%u:%g" /w) resources/libraries
+          '
+      - name: Install runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libprotobuf-lite32t64 libzmq5 zlib1g libcurl4 libssl3
       - name: Install Raku Dependencies
         run: zef install --deps-only .
       - name: Run Tests
