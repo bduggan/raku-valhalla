@@ -1,0 +1,26 @@
+{
+    "name" : "Valhalla::Native",
+    "source-url" : "git://github.com/bduggan/raku-valhalla.git",
+    "raku" : "6.*",
+    "resources" : [
+        "libraries/valhalla_c"
+    ],
+    "provides" : {
+        "Valhalla::Native" : "lib/Valhalla/Native.rakumod"
+    },
+    "tags" : [
+        "geo",
+        "routing",
+        "valhalla"
+    ],
+    "depends" : [ ],
+    "build-depends" : [ ],
+    "test-depends" : [ ],
+    "description" : "Raku NativeCall bindings to the Valhalla routing engine",
+    "version" : "0.0.1",
+    "license" : "Artistic-2.0",
+    "authors" : [
+        "Brian Duggan"
+    ],
+    "auth" : "zef:bduggan"
+}

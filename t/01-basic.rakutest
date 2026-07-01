@@ -1,0 +1,43 @@
+use Test;
+use Valhalla::Native;
+
+my $conf = $*HOME.child('valhalla-run').child('valhalla.json');
+
+unless $conf.IO.e {
+    skip-rest "Valhalla configuration file not found: $conf";
+    done-testing;
+    exit;
+}
+
+my $reader = valhalla_reader_create($conf.Str);
+ok $reader, "created Valhalla GraphReader from $conf";
+
+my $level   = 2;
+my $tile-id = 750945;
+
+my $count = valhalla_tile_edge_count($reader, $level, $tile-id);
+diag "Tile level=$level tile_id=$tile-id has $count directed edges";
+ok $count >= 0, 'edge count is non-negative';
+
+if $count > 0 {
+    my $edge = EdgeData.new;
+    my @speeds;
+    for 0..^min($count, 20) -> $i {
+        my $ok = valhalla_tile_get_edge($reader, $level, $tile-id, $i, $edge);
+        if $ok {
+            @speeds.push: {
+                id     => $i,
+                speed  => $edge.speed,
+                length => $edge.length,
+            };
+        }
+    }
+    ok @speeds.elems > 0, 'read at least one edge';
+    for @speeds -> $s {
+        diag "  edge {$s<id>}: speed={$s<speed>} kph  length={$s<length>} m";
+    }
+}
+
+valhalla_reader_destroy($reader);
+
+done-testing;

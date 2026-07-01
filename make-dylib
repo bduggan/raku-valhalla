@@ -1,0 +1,19 @@
+#!/bin/bash
+set -e
+
+PKG_CONFIG_PATH=/usr/local/lib/pkgconfig
+
+CFLAGS=$(pkg-config --cflags libvalhalla)
+
+clang++ -std=c++20 \
+    -dynamiclib \
+    -o libvalhalla_c.dylib \
+    valhalla_c_api.cpp \
+    $CFLAGS \
+    -I/opt/homebrew/include \
+    -L/usr/local/lib -lvalhalla.3 \
+    -L/opt/homebrew/lib \
+    -Wl,-rpath,/usr/local/lib \
+    -Wl,-rpath,/opt/homebrew/lib
+
+echo "Built libvalhalla_c.dylib"
