@@ -61,6 +61,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX=/usr/local/valhalla \
             -DCMAKE_PREFIX_PATH=/usr/local/valhalla \
+            -DCMAKE_CXX_FLAGS=-Wno-error=deprecated-declarations \
             -DENABLE_TESTS=OFF \
             -DENABLE_BENCHMARKS=OFF \
             -DENABLE_PYTHON_BINDINGS=OFF \
