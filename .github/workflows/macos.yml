@@ -19,18 +19,64 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
       - uses: Raku/setup-raku@v1
         with:
           raku-version: ${{ matrix.raku-version }}
-      - name: Install Valhalla
+
+      - name: Install build dependencies
         run: |
           brew update
-          brew install valhalla pkg-config
+          brew install \
+            automake cmake libtool protobuf protobuf-c libspatialite pkg-config \
+            sqlite3 jq curl wget czmq lz4 spatialite-tools unzip luajit boost \
+            autoconf zmq
+
+      - name: Cache Valhalla install
+        id: cache-valhalla
+        uses: actions/cache@v4
+        with:
+          path: /usr/local/valhalla
+          key: valhalla-${{ runner.os }}-${{ runner.arch }}-v1
+
+      - name: Build and install prime_server
+        if: steps.cache-valhalla.outputs.cache-hit != 'true'
+        run: |
+          git clone --recurse-submodules https://github.com/kevinkreiser/prime_server.git
+          cd prime_server
+          ./autogen.sh
+          ./configure --prefix=/usr/local/valhalla
+          make -j$(sysctl -n hw.physicalcpu)
+          sudo make install
+
+      - name: Build and install Valhalla
+        if: steps.cache-valhalla.outputs.cache-hit != 'true'
+        run: |
+          git clone --recurse-submodules https://github.com/valhalla/valhalla.git
+          cd valhalla
+          PKG_CONFIG_PATH=/usr/local/valhalla/lib/pkgconfig \
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr/local/valhalla \
+            -DCMAKE_PREFIX_PATH=/usr/local/valhalla \
+            -DENABLE_TESTS=OFF \
+            -DENABLE_BENCHMARKS=OFF \
+            -DENABLE_PYTHON_BINDINGS=OFF \
+            -DENABLE_SERVICES=OFF \
+            -DENABLE_TOOLS=OFF
+          make -C build -j$(sysctl -n hw.physicalcpu)
+          sudo make -C build install
+
+      - name: Expose Valhalla to pkg-config and linker
+        run: |
+          echo "PKG_CONFIG_PATH=/usr/local/valhalla/lib/pkgconfig" >> $GITHUB_ENV
+          echo "DYLD_LIBRARY_PATH=${{ github.workspace }}/resources/libraries:/usr/local/valhalla/lib" >> $GITHUB_ENV
+
       - name: Build dylib
         run: ./make dylib
+
       - name: Install Raku Dependencies
         run: zef install --deps-only .
+
       - name: Run Tests
-        env:
-          DYLD_LIBRARY_PATH: ${{ github.workspace }}/resources/libraries
         run: zef test -v .
