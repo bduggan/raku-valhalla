@@ -7,6 +7,7 @@ export PKG_CONFIG_PATH
 CFLAGS=$(pkg-config --cflags libvalhalla)
 LIBS=$(pkg-config --libs libvalhalla)
 LIBDIR=$(pkg-config --variable=libdir libvalhalla)
+CURL_LIBS=$(pkg-config --libs libcurl 2>/dev/null || echo -lcurl)
 
 clang++ -std=c++20 \
     -dynamiclib \
@@ -15,6 +16,7 @@ clang++ -std=c++20 \
     $CFLAGS \
     -I/opt/homebrew/include \
     $LIBS \
+    $CURL_LIBS \
     -L/opt/homebrew/lib \
     -Wl,-rpath,"$LIBDIR" \
     -Wl,-rpath,/usr/local/lib \
