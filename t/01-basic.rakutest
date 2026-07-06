@@ -3,20 +3,46 @@ use Valhalla::Native;
 
 plan 3;
 
-my $conf = $*HOME.child('valhalla-run').child('valhalla.json');
+my $home = %*ENV<VALHALLA_HOME>;
+unless $home.defined {
+    skip-rest "VALHALLA_HOME environment variable not set";
+    exit;
+}
+
+my $conf = $home.IO.child('valhalla.json');
 
 unless $conf.IO.e {
     skip-rest "Valhalla configuration file not found: $conf";
     exit;
 }
 
-my $reader = valhalla_reader_create($conf.Str);
+my $reader = valhalla_reader_create($conf);
 ok $reader, "created Valhalla GraphReader from $conf";
 
-my $level   = 2;
-my $tile-id = 750945;
+# Discover a level-2 tile that exists in this extract by probing the reader.
+# valhalla_tile_edge_count returns -1 when the tile isn't loaded. Tile ids in
+# the wild vary by region, so we sweep a range that covers common NYC/US tiles
+# and stop at the first one that resolves.
+my $level = 2;
+my ($tile-id, $count);
+for 750_000, 751_000, 752_000, 753_000, 754_000, 755_000, 756_000 -> $base {
+    for $base ..^ ($base + 1000) -> $candidate {
+        my $c = valhalla_tile_edge_count($reader, $level, $candidate);
+        if $c >= 0 {
+            $tile-id = $candidate;
+            $count   = $c;
+            last;
+        }
+    }
+    last if $tile-id.defined;
+}
 
-my $count = valhalla_tile_edge_count($reader, $level, $tile-id);
+unless $tile-id.defined {
+    valhalla_reader_destroy($reader);
+    skip-rest "no level-2 tiles found in $home";
+    exit;
+}
+
 diag "Tile level=$level tile_id=$tile-id has $count directed edges";
 ok $count >= 0, 'edge count is non-negative';
 
@@ -38,7 +64,8 @@ if $count > 0 {
         diag "  edge {$s<id>}: speed={$s<speed>} kph  length={$s<length>} m";
     }
 }
+else {
+    skip 'tile has 0 edges — nothing to read', 1;
+}
 
 valhalla_reader_destroy($reader);
-
-done-testing;

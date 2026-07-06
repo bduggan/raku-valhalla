@@ -9,6 +9,20 @@ LIBS=$(pkg-config --libs libvalhalla)
 LIBDIR=$(pkg-config --variable=libdir libvalhalla)
 CURL_LIBS=$(pkg-config --libs libcurl 2>/dev/null || echo -lcurl)
 
+# Verify libvalhalla.dylib resolves — the symlink at $LIBDIR/libvalhalla.dylib
+# is sometimes broken (points at libvalhalla.dylib.3 instead of libvalhalla.3.dylib),
+# which silently makes -lvalhalla fall back to the stale libvalhalla.a and produces
+# confusing protobuf-ABI link errors.
+DYLIB="$LIBDIR/libvalhalla.dylib"
+if [ ! -e "$DYLIB" ]; then
+    echo "error: $DYLIB does not resolve (dangling symlink or missing file)" >&2
+    if [ -L "$DYLIB" ]; then
+        echo "       symlink target: $(readlink "$DYLIB")" >&2
+    fi
+    echo "       fix: sudo ln -sf libvalhalla.3.dylib $DYLIB" >&2
+    exit 1
+fi
+
 clang++ -std=c++20 \
     -dynamiclib \
     -o libvalhalla_c.dylib \
@@ -19,7 +33,6 @@ clang++ -std=c++20 \
     $CURL_LIBS \
     -L/opt/homebrew/lib \
     -Wl,-rpath,"$LIBDIR" \
-    -Wl,-rpath,/usr/local/lib \
     -Wl,-rpath,/opt/homebrew/lib
 
 echo "Built libvalhalla_c.dylib"

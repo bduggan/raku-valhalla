@@ -13,7 +13,7 @@
         "routing",
         "valhalla"
     ],
-    "depends" : [ ],
+    "depends" : [ "JSON::Fast" ],
     "build-depends" : [ ],
     "test-depends" : [ ],
     "description" : "Raku NativeCall bindings to the Valhalla routing engine",
