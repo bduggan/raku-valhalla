@@ -54,7 +54,7 @@ This is pre-beta, everything is subject to change!
 INSTALLATION
 ============
 
-Valhalla provides a C++ API. This module wraps that into a C API and then uses Nativecall. Installation varies depending on the system but in general the only prerequisite should be the existence of libvalhalla.so, libvalhalla.dylib or however shared libraries are named on your system. The github actions for this repository verify a complete installation, so that can be used as a point of reference if all else fails.
+Valhalla provides a C++ API. This module wraps that into a C API and then uses Nativecall. Installation varies depending on the system but in general the only prerequisite should be the existence of libvalhalla.so, or .a, or .dylib or the library extension for your system. Then `zef install Valhalla` should do all you need. The github actions for this repository verify a complete installation, so refer to that if all else fails.
 
 AUTHOR
 ======
