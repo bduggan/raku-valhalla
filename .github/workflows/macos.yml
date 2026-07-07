@@ -59,6 +59,10 @@ jobs:
           make -C build -j$(sysctl -n hw.physicalcpu)
           sudo make -C build install
 
+      - name: Repair libvalhalla.dylib symlink
+        run: |
+          sudo ln -sf libvalhalla.3.dylib /usr/local/valhalla/lib/libvalhalla.dylib
+
       - name: Expose Valhalla to pkg-config and linker
         run: |
           echo "PKG_CONFIG_PATH=/usr/local/valhalla/lib/pkgconfig" >> $GITHUB_ENV
