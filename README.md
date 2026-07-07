@@ -4,16 +4,16 @@
 NAME
 ====
 
-Valhalla -- Interface to the Valhalla routing engine
+Geo::Valhalla -- Interface to the Valhalla routing engine
 
 SYNOPSIS
 ========
 
-    use Valhalla;
+    use Geo::Valhalla;
 
     # Washington Square Park to Central Park, NYC
     my ($from-lat, $from-lon, $to-lat, $to-lon) = <40.7308 -73.9973 40.7648 -73.9808>;
-    my $v = Valhalla.new;
+    my $v = Geo::Valhalla.new;
     my $res = $v.route:
        locations => [
            { :lat($from-lat), :lon($from-lon), :type<break> },
@@ -47,14 +47,14 @@ This is a Raku interface to the [Valhalla](https://github.com/valhalla/valhalla)
 
 It provides bindings similar to the [bindings](https://github.com/valhalla/valhalla/tree/master/src/bindings) available for other languages.
 
-This class provides a somewhat high level OO interface, while [Valhalla::Native](Valhalla::Native) provides a lower level functional interface.
+This class provides a somewhat high level OO interface, while [Geo::Valhalla::Native](Geo::Valhalla::Native) provides a lower level functional interface.
 
 This is pre-beta, everything is subject to change!
 
 INSTALLATION
 ============
 
-Valhalla provides a C++ API. This module wraps that into a C API and then uses Nativecall. Installation varies depending on the system but in general the only prerequisite should be the existence of libvalhalla.so, or .a, or .dylib or the library extension for your system. Then `zef install Valhalla` should do all you need. The github actions for this repository verify a complete installation, so refer to that if all else fails.
+Valhalla provides a C++ API. This module wraps that into a C API and then uses Nativecall. Installation varies depending on the system but in general the only prerequisite should be the existence of libvalhalla.so, or .a, or .dylib or the library extension for your system. Then `zef install Geo::Valhalla` should do all you need. The github actions for this repository verify a complete installation, so refer to that if all else fails.
 
 AUTHOR
 ======

@@ -6,8 +6,8 @@
         "libraries/valhalla_c"
     ],
     "provides" : {
-        "Valhalla::Native" : "lib/Valhalla/Native.rakumod",
-        "Valhalla" : "lib/Valhalla.rakumod"
+        "Geo::Valhalla::Native" : "lib/Geo/Valhalla/Native.rakumod",
+        "Geo::Valhalla" : "lib/Geo/Valhalla.rakumod"
     },
     "tags" : [
         "geo",

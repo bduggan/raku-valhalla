@@ -1,13 +1,13 @@
 #!raku
 
-use Valhalla;
+use Geo::Valhalla;
 use Map::Leaflet 'leaf';
 use Geo::Polyline;
 
 # Washington Square Park to Union Square, NYC
 my ($from-lat, $from-lon, $to-lat, $to-lon) = <40.7308 -73.9973 40.7359 -73.9911>;
 my $conf = %*ENV<VALHALLA_CONF>;
-my $v = Valhalla.new: :$conf;
+my $v = Geo::Valhalla.new: :$conf;
 my $res = $v.route:
    locations => [
        { :lat($from-lat), :lon($from-lon), :type<break> },

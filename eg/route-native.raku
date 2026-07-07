@@ -1,6 +1,6 @@
 #!raku
 
-use Valhalla::Native;
+use Geo::Valhalla::Native;
 
 # default washington square park to central park
 my ($from-lat, $from-lon, $to-lat, $to-lon) = <40.7308 -73.9973 40.7648 -73.9808>;

@@ -1,11 +1,11 @@
 #!raku
 
-use Valhalla;
+use Geo::Valhalla;
 
 # Washington Square Park to Central Park, NYC
 my ($from-lat, $from-lon, $to-lat, $to-lon) = <40.7308 -73.9973 40.7648 -73.9808>;
 my $conf = %*ENV<VALHALLA_CONF> // 'valhalla.json';
-my $v = Valhalla.new: :$conf;
+my $v = Geo::Valhalla.new: :$conf;
 my $res = $v.route:
    locations => [
        { :lat($from-lat), :lon($from-lon), :type<break> },

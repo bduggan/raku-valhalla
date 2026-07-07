@@ -1,6 +1,6 @@
 #!/usr/bin/env raku
 
-constant $readme-src = "lib/Valhalla.rakumod";
+constant $readme-src = "lib/Geo/Valhalla.rakumod";
 constant $github-repo = 'bduggan/raku-valhalla';
 
 if %*ENV<VERBOSE> {

@@ -1,4 +1,4 @@
-unit module Valhalla::Native;
+unit module Geo::Valhalla::Native;
 
 use NativeCall;
 use JSON::Fast;

@@ -1,5 +1,5 @@
 use Test;
-use Valhalla::Native;
+use Geo::Valhalla::Native;
 
 plan 3;
 
