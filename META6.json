@@ -1,5 +1,5 @@
 {
-    "name" : "Valhalla::Native",
+    "name" : "Geo::Valhalla",
     "source-url" : "git://github.com/bduggan/raku-valhalla.git",
     "raku" : "6.*",
     "resources" : [
