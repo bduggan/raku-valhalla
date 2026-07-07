@@ -2,7 +2,7 @@ unit class Valhalla;
 use Valhalla::Native;
 
 has $.actor;
-has Str $.conf = (%*ENV<VALHALLA_CONFIG> // %*ENV<VALHALLA_HOME>.IO.child('valhalla.json').?Str);
+has Str $.conf is required;
 
 submethod TWEAK {
   fail "Valhalla configuration file not found at {$!conf}" unless $!conf.IO.e;

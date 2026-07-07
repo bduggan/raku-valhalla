@@ -3,32 +3,26 @@ use Valhalla::Native;
 
 plan 6;
 
-my $home = %*ENV<VALHALLA_HOME>;
-unless $home.defined {
-    skip-rest "VALHALLA_HOME environment variable not set";
-    exit;
-}
-
-my $conf = $home.IO.child('valhalla.json');
-unless $conf.e {
-    skip-rest "Valhalla configuration file not found: $conf";
-    exit;
+my $conf = %*ENV<VALHALLA_CONF>;
+unless $conf && $conf.IO.e {
+  skip-rest "Valhalla configuration file not found: $conf";
+  exit;
 }
 
 my $actor = valhalla_actor_create($conf.Str);
 unless $actor {
-    skip-rest "failed to create ValhallaActor from $conf";
-    exit;
+  skip-rest "failed to create ValhallaActor from $conf";
+  exit;
 }
 
 # Washington Square Park -> Central Park (south)
 my %req =
-    locations => [
-        { :lat(40.7308), :lon(-73.9973), :type<break> },
-        { :lat(40.7648), :lon(-73.9808), :type<break> },
-    ],
-    :costing<auto>,
-    directions_options => { :units<miles> },
+  locations => [
+    { :lat(40.7308), :lon(-73.9973), :type<break> },
+    { :lat(40.7648), :lon(-73.9808), :type<break> },
+  ],
+  :costing<auto>,
+  directions_options => { :units<miles> },
 ;
 
 # Hash-in / hash-out variant.
@@ -37,10 +31,10 @@ my %resp = valhalla-route($actor, %req);
 # When the tile set doesn't cover NYC, Valhalla returns an error object
 # rather than a trip. Skip the rest of the tests in that case.
 if !%resp<trip> {
-    my $why = %resp<error> // %resp<error_code> // 'no trip in response';
-    valhalla_actor_destroy($actor);
-    skip-rest "NYC tiles not loaded ($why)";
-    exit;
+  my $why = %resp<error> // %resp<error_code> // 'no trip in response';
+  valhalla_actor_destroy($actor);
+  skip-rest "NYC tiles not loaded ($why)";
+  exit;
 }
 
 ok %resp<trip>:exists, 'hash variant returned a trip';
@@ -56,7 +50,7 @@ my %parsed = from-json($resp-str);
 ok %parsed<trip>:exists, 'string variant parses to a trip';
 
 is-approx %parsed<trip><summary><length>, %resp<trip><summary><length>, 1e-6,
-    'both variants produce the same trip length';
+  'both variants produce the same trip length';
 
 valhalla_actor_destroy($actor);
 
