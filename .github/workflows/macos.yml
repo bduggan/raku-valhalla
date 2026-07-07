@@ -37,18 +37,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /usr/local/valhalla
-          key: valhalla-${{ runner.os }}-${{ runner.arch }}-valhalla-3.7.0-prime_server-0.13.0
-
-      - name: Build and install prime_server
-        if: steps.cache-valhalla.outputs.cache-hit != 'true'
-        run: |
-          git clone --recurse-submodules --branch 0.13.0 --depth 1 \
-            https://github.com/kevinkreiser/prime_server.git
-          cd prime_server
-          ./autogen.sh
-          ./configure --prefix=/usr/local/valhalla
-          make -j$(sysctl -n hw.physicalcpu)
-          sudo make install
+          key: valhalla-${{ runner.os }}-${{ runner.arch }}-valhalla-3.7.0-shared
 
       - name: Build and install Valhalla
         if: steps.cache-valhalla.outputs.cache-hit != 'true'
@@ -56,17 +45,17 @@ jobs:
           git clone --recurse-submodules --branch 3.7.0 --depth 1 \
             https://github.com/valhalla/valhalla.git
           cd valhalla
-          PKG_CONFIG_PATH=/usr/local/valhalla/lib/pkgconfig \
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX=/usr/local/valhalla \
-            -DCMAKE_PREFIX_PATH=/usr/local/valhalla \
             -DCMAKE_CXX_FLAGS=-Wno-error=deprecated-declarations \
+            -DBUILD_SHARED_LIBS=ON \
             -DENABLE_TESTS=OFF \
             -DENABLE_BENCHMARKS=OFF \
             -DENABLE_PYTHON_BINDINGS=OFF \
             -DENABLE_SERVICES=OFF \
-            -DENABLE_TOOLS=OFF
+            -DENABLE_TOOLS=OFF \
+            -DENABLE_HTTP=OFF
           make -C build -j$(sysctl -n hw.physicalcpu)
           sudo make -C build install
 

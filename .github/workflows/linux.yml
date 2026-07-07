@@ -38,7 +38,7 @@ jobs:
               valhalla_c_api.cpp \
               $CFLAGS \
               -L/usr/local/lib \
-              -Wl,-Bstatic -lvalhalla -lprime_server -Wl,-Bdynamic \
+              -Wl,-Bstatic -lvalhalla -Wl,-Bdynamic \
               -lprotobuf-lite -lzmq -lz -lcurl -lssl -lcrypto
             chown -R $(stat -c "%u:%g" /w) resources/libraries
           '
