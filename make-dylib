@@ -9,18 +9,20 @@ LIBS=$(pkg-config --libs libvalhalla)
 LIBDIR=$(pkg-config --variable=libdir libvalhalla)
 CURL_LIBS=$(pkg-config --libs libcurl 2>/dev/null || echo -lcurl)
 
-# Verify libvalhalla.dylib resolves — the symlink at $LIBDIR/libvalhalla.dylib
-# is sometimes broken (points at libvalhalla.dylib.3 instead of libvalhalla.3.dylib),
-# which silently makes -lvalhalla fall back to the stale libvalhalla.a and produces
-# confusing protobuf-ABI link errors.
+# Valhalla's cmake install writes a broken libvalhalla.dylib symlink on macOS
+# (points at libvalhalla.dylib.3 instead of libvalhalla.3.dylib). Left alone,
+# -lvalhalla silently falls back to the stale libvalhalla.a and produces
+# confusing protobuf-ABI link errors. Repair it if we can find the real target.
 DYLIB="$LIBDIR/libvalhalla.dylib"
 if [ ! -e "$DYLIB" ]; then
-    echo "error: $DYLIB does not resolve (dangling symlink or missing file)" >&2
-    if [ -L "$DYLIB" ]; then
-        echo "       symlink target: $(readlink "$DYLIB")" >&2
+    REAL=$(ls "$LIBDIR"/libvalhalla.*.dylib 2>/dev/null | head -1)
+    if [ -z "$REAL" ]; then
+        echo "error: no libvalhalla.*.dylib found in $LIBDIR" >&2
+        exit 1
     fi
-    echo "       fix: sudo ln -sf libvalhalla.3.dylib $DYLIB" >&2
-    exit 1
+    echo "repairing $DYLIB -> $(basename "$REAL")"
+    ln -sf "$(basename "$REAL")" "$DYLIB" 2>/dev/null \
+        || sudo ln -sf "$(basename "$REAL")" "$DYLIB"
 fi
 
 clang++ -std=c++20 \
