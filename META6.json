@@ -18,7 +18,7 @@
     "build-depends" : [ ],
     "test-depends" : [ ],
     "description" : "Raku NativeCall bindings to the Valhalla routing engine",
-    "version" : "0.0.1",
+    "version" : "0.0.2",
     "license" : "Artistic-2.0",
     "authors" : [
         "Brian Duggan"
