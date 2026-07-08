@@ -51,10 +51,57 @@ This class provides a somewhat high level OO interface, while [Geo::Valhalla::Na
 
 This is pre-beta, everything is subject to change!
 
+EXAMPLES
+========
+
+Here is a more complete example of drawing a route between two places, with turn instructions.
+
+    use Geo::Valhalla;
+    use Geo::Polyline;
+    use Map::Leaflet 'leaf';
+    use WebService::Nominatim 'nom';
+
+    my $v = Geo::Valhalla.new: :conf( %*ENV<VALHALLA_CONF> );
+
+    # These return a hash with lat/lon
+    my %from = nom.search('Washington Square Park').first;
+    my %to = nom.search('Tompkins Square Park').first;
+
+    # Get the route
+    my $res = $v.route: locations => [ %from, %to ], costing => 'auto';
+
+    leaf.extra-css = q:to/CSS/;
+       .route-label {
+          background-color: white;
+          border: 2px solid black;
+          white-space: nowrap;
+       }
+    CSS
+
+    my $leg = $res<trip><legs>.first;
+    my $points = polyline6-decode $leg<shape>;
+    for $leg<maneuvers><> -> $m {
+        my $latlng = $points[ $m<begin_shape_index>  ].reverse; # lnglat to latlng
+        leaf.create-marker: :$latlng;
+        my $icon = leaf.create-div-icon:
+            html => ( $m<instruction> // '' ) ~ '<br>'
+                    ~ '<b>' ~ ($m<street_names> // '') ~ '</b>',
+            className => 'route-label';
+        leaf.create-marker: :$latlng, options => %( :$icon );
+    }
+    leaf.add-geojson: polyline6-to-geojson($res<trip><legs>[0]<shape>), style => { weight => 10 };
+    leaf.show;
+
+<img width="1156" height="655" alt="Image" src="https://github.com/user-attachments/assets/562e299a-772e-4885-9874-1e2e0500087d" />
+
 INSTALLATION
 ============
 
-Valhalla provides a C++ API. This module wraps that into a C API and then uses Nativecall. Installation varies depending on the system but in general the only prerequisite should be the existence of libvalhalla.so, or .a, or .dylib or the library extension for your system. Then `zef install Geo::Valhalla` should do all you need. The github actions for this repository verify a complete installation, so refer to that if all else fails.
+Installing Valhalla itself is documented [here](https://valhalla.github.io/valhalla/building/).
+
+You will likely need to compile from source to get the .so or .dylib. After this, run `./make-dylib` in this repository.
+
+Note that this module wraps Valhalla's C++ with a C API, which is similar to mechanisms used by the other bindings.
 
 AUTHOR
 ======
