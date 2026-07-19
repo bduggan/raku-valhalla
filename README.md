@@ -92,7 +92,7 @@ Here is a more complete example of drawing a route between two places, with turn
     leaf.add-geojson: polyline6-to-geojson($res<trip><legs>[0]<shape>), style => { weight => 10 };
     leaf.show;
 
-<img width="1156" height="655" alt="Image" src="https://github.com/user-attachments/assets/562e299a-772e-4885-9874-1e2e0500087d" />
+![directions](https://raw.githubusercontent.com/bduggan/raku-valhalla/images/img/directions.png)
 
 INSTALLATION
 ============
