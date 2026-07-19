@@ -62,8 +62,8 @@ multi MAIN('docs') {
     SH
 }
 
-multi MAIN('bumpdist') {
-  shell "zef test .";
+multi MAIN('bumpdist', Bool :$notest) {
+  shell "zef test ." unless $notest;
   my $next = qq:x[raku -e '"$version".split(".") >>+>> <0 0 1> ==> join(".") ==> say()'].trim;
   say "$version -> $next";
   exit note "no next version" unless $next;
