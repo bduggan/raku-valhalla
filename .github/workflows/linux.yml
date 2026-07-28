@@ -35,7 +35,8 @@ jobs:
             DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
               clang pkg-config \
               zlib1g-dev libprotobuf-dev libzmq3-dev libczmq-dev libcurl4-openssl-dev libboost-dev \
-              libspatialite-dev libsqlite3-dev libluajit-5.1-dev libgeos-dev libssl-dev libtiff-dev liblz4-dev
+              libspatialite-dev libsqlite3-dev libluajit-5.1-dev libgeos-dev libssl-dev libtiff-dev liblz4-dev \
+              libgeotiff-dev libproj-dev
             CXX=clang++ VALHALLA_USE_STATIC=1 ./make-lib
             chown -R $(stat -c "%u:%g" /w) resources/libraries
           '

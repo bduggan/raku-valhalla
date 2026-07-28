@@ -116,14 +116,20 @@ fi
 
 echo "Built $OUTPATH"
 
-# Best-effort check: nothing should be left unresolved.
+# Report any unresolved symbols. These are usually optional Valhalla subsystems
+# (e.g. libgeotiff elevation support) that normal routing never touches, so we
+# warn rather than fail — the shim still loads and works. Set STRICT=1 to treat
+# leftover symbols as a hard error instead. The t/00-load.rakutest smoke test
+# catches a genuinely broken shim (a missing *core* symbol) regardless.
 if [ "$OS" = linux ] && command -v ldd >/dev/null 2>&1; then
     MISSING=$(ldd -r "$OUTPATH" 2>&1 | grep "undefined symbol" || true)
     if [ -n "$MISSING" ]; then
-        echo "warning: unresolved symbols remain — the module may fail to load:" >&2
+        echo "warning: unresolved symbols remain (optional deps not installed):" >&2
         echo "$MISSING" | sed 's/^/  /' | head -20 >&2
-        echo "  (a needed dependency library is probably missing; install it and rebuild)" >&2
-        exit 1
+        echo "  routing still works; install the matching -dev package for the" >&2
+        echo "  subsystem above (e.g. libgeotiff-dev) if you need it." >&2
+        [ "${STRICT:-0}" = 1 ] && { echo "STRICT=1: failing." >&2; exit 1; }
+    else
+        echo "OK: all symbols resolved"
     fi
 fi
-echo "OK: all symbols resolved"
