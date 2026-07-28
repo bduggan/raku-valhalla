@@ -25,11 +25,11 @@ multi MAIN('test', Bool :$v) {
   shell "$env TEST_AUTHOR=1 prove {$v ?? '-v' !! ''} -e 'raku {$v ?? '--ll-exception' !! ''} -Ilib' t/*.rakutest";
 }
 
-multi MAIN('dylib') {
-  shell './make-dylib';
-  shell 'mkdir -p resources/libraries';
-  shell 'mv libvalhalla_c.dylib resources/libraries/';
-}
+# Build the native shim (.so/.dylib). make-lib detects platform and whether a
+# shared or static libvalhalla is installed. `dylib`, `so`, and `lib` are aliases.
+multi MAIN('lib')   { shell './make-lib'; }
+multi MAIN('so')    { shell './make-lib'; }
+multi MAIN('dylib') { shell './make-lib'; }
 
 multi MAIN('dist') {
   make-dist($version);

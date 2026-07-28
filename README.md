@@ -92,14 +92,24 @@ Here is a more complete example of drawing a route between two places, with turn
     leaf.add-geojson: polyline6-to-geojson($res<trip><legs>[0]<shape>), style => { weight => 10 };
     leaf.show;
 
-![directions](https://raw.githubusercontent.com/bduggan/raku-valhalla/images/img/directions.png)
+<img width="1156" height="655" alt="Image" src="https://github.com/user-attachments/assets/562e299a-772e-4885-9874-1e2e0500087d" />
 
 INSTALLATION
 ============
 
 Installing Valhalla itself is documented [here](https://valhalla.github.io/valhalla/building/).
 
-You will likely need to compile from source to get the .so or .dylib. After this, run `./make-dylib` in this repository.
+Once Valhalla is installed, build the native shim with:
+
+    ./make lib
+
+This detects your platform (building `libvalhalla_c.so` on Linux or `libvalhalla_c.dylib` on macOS) and how Valhalla is installed. By default it links against the shared `libvalhalla` if one is present, otherwise it links the static `libvalhalla.a` into the shim. Either way it discovers Valhalla via `pkg-config` (set `PKG_CONFIG_PATH` if `libvalhalla.pc` lives somewhere non-standard).
+
+To force linking the static `libvalhalla.a` even when a shared library is also installed — producing a self-contained shim that needs no `libvalhalla` at runtime — set:
+
+    VALHALLA_USE_STATIC=1 ./make lib
+
+The static archive is only used at build time; it is never shipped.
 
 Note that this module wraps Valhalla's C++ with a C API, which is similar to mechanisms used by the other bindings.
 

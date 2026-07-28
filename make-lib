@@ -1,0 +1,129 @@
+#!/bin/bash
+# Build resources/libraries/libvalhalla_c.{so,dylib} — the native shim that
+# Raku's NativeCall loads. Figures out the situation on its own:
+#
+#   * platform:  macOS -> .dylib (-dynamiclib),  Linux -> .so (-shared -fPIC)
+#   * Valhalla:  link the shared libvalhalla if one is installed; otherwise
+#                pull in the static libvalhalla.a whole (force_load /
+#                --whole-archive), since the archive is C++ and the linker
+#                would drop members our extern "C" shim doesn't name directly.
+#   * deps:      Valhalla's transitive libs aren't all in libvalhalla.pc, so
+#                we probe a candidate list and link the ones that exist here.
+#
+# Env overrides: CXX, PKG_CONFIG_PATH.
+set -euo pipefail
+
+: "${PKG_CONFIG_PATH:=/usr/local/lib/pkgconfig}"
+export PKG_CONFIG_PATH
+
+if ! pkg-config --exists libvalhalla; then
+    echo "error: pkg-config can't find libvalhalla" >&2
+    echo "       is Valhalla installed? try: PKG_CONFIG_PATH=/path/to/pkgconfig $0" >&2
+    exit 1
+fi
+
+CFLAGS=$(pkg-config --cflags libvalhalla)
+LIBDIR=$(pkg-config --variable=libdir libvalhalla)
+[ -n "$LIBDIR" ] || LIBDIR=/usr/local/lib
+CURL_LIBS=$(pkg-config --libs libcurl 2>/dev/null || echo -lcurl)
+
+case "$(uname -s)" in
+    Darwin) OS=mac;   OUT=libvalhalla_c.dylib; SHFLAGS="-dynamiclib" ;;
+    *)      OS=linux; OUT=libvalhalla_c.so;    SHFLAGS="-shared -fPIC" ;;
+esac
+
+# Compiler: honor $CXX, else clang++ on mac / g++ on linux, else whatever's around.
+if [ -z "${CXX:-}" ]; then
+    if [ "$OS" = mac ]; then CXX=clang++; else CXX=g++; fi
+fi
+command -v "$CXX" >/dev/null 2>&1 || CXX=c++
+command -v "$CXX" >/dev/null 2>&1 || { echo "error: no C++ compiler (set \$CXX)" >&2; exit 1; }
+
+mkdir -p resources/libraries
+OUTPATH="resources/libraries/$OUT"
+
+# Is there a shared libvalhalla we can link against?
+if [ "$OS" = mac ]; then
+    SHARED=$(ls "$LIBDIR"/libvalhalla.dylib "$LIBDIR"/libvalhalla.*.dylib 2>/dev/null | head -1 || true)
+else
+    SHARED=$(ls "$LIBDIR"/libvalhalla.so "$LIBDIR"/libvalhalla.so.* 2>/dev/null | head -1 || true)
+fi
+STATIC="$LIBDIR/libvalhalla.a"
+
+# Does the toolchain resolve `-l$1`?  (cheap existence probe)
+have_lib() {
+    echo 'int main(){return 0;}' | "$CXX" -x c++ - "-L$LIBDIR" "-l$1" -o /dev/null 2>/dev/null
+}
+
+# Optional deps Valhalla may reference; linked only if present on this box.
+# Extras that aren't actually needed are dropped by the linker (--as-needed).
+CANDIDATES="protobuf-lite prime_server zmq z geos_c sqlite3 expat \
+            luajit-5.1 lua5.1 tiff lz4 spatialite geotiff proj"
+DEPS=""
+for l in $CANDIDATES; do
+    have_lib "$l" && DEPS="$DEPS -l$l"
+done
+
+COMMON="-std=c++20 $CFLAGS -L$LIBDIR"
+
+# Link against the shared libvalhalla: small shim, Valhalla loaded at runtime
+# (so libvalhalla.so/.dylib must be findable then, via the rpath below).
+link_shared() {
+    echo "Valhalla: shared ($SHARED)"
+    # Repair the plain-name symlink cmake sometimes botches, so -lvalhalla resolves.
+    if [ "$OS" = mac ] && [ ! -e "$LIBDIR/libvalhalla.dylib" ]; then
+        ln -sf "$(basename "$SHARED")" "$LIBDIR/libvalhalla.dylib" 2>/dev/null \
+            || sudo ln -sf "$(basename "$SHARED")" "$LIBDIR/libvalhalla.dylib" 2>/dev/null || true
+    elif [ "$OS" = linux ] && [ ! -e "$LIBDIR/libvalhalla.so" ]; then
+        ln -sf "$(basename "$SHARED")" "$LIBDIR/libvalhalla.so" 2>/dev/null \
+            || sudo ln -sf "$(basename "$SHARED")" "$LIBDIR/libvalhalla.so" 2>/dev/null || true
+    fi
+    local vlink="-lvalhalla"
+    [ -e "$LIBDIR/libvalhalla.so" ] || [ -e "$LIBDIR/libvalhalla.dylib" ] || vlink="$SHARED"
+    # shellcheck disable=SC2086
+    "$CXX" $COMMON $SHFLAGS -o "$OUTPATH" valhalla_c_api.cpp \
+        $vlink $DEPS $CURL_LIBS -Wl,-rpath,"$LIBDIR"
+}
+
+# Bake the static libvalhalla.a into our shim: self-contained, no libvalhalla
+# needed at runtime. We only *use* the .a here — it is never shipped.
+link_static() {
+    echo "Valhalla: static ($STATIC)"
+    local force
+    if [ "$OS" = mac ]; then
+        force="-Wl,-force_load,$STATIC"
+    else
+        force="-Wl,--whole-archive $STATIC -Wl,--no-whole-archive"
+    fi
+    # shellcheck disable=SC2086
+    "$CXX" $COMMON $SHFLAGS -o "$OUTPATH" valhalla_c_api.cpp \
+        $force $DEPS $CURL_LIBS
+}
+
+# Default: prefer the shared lib, fall back to the static archive.
+# VALHALLA_USE_STATIC=1 flips it: prefer static, fall back to shared.
+if [ "${VALHALLA_USE_STATIC:-0}" = 1 ]; then
+    if   [ -e "$STATIC" ];  then link_static
+    elif [ -n "$SHARED" ];  then echo "note: VALHALLA_USE_STATIC=1 but no $STATIC — using shared" >&2; link_shared
+    else echo "error: found neither $STATIC nor a shared libvalhalla in $LIBDIR" >&2; exit 1
+    fi
+else
+    if   [ -n "$SHARED" ];  then link_shared
+    elif [ -e "$STATIC" ];  then link_static
+    else echo "error: found neither a shared libvalhalla nor $STATIC in $LIBDIR" >&2; exit 1
+    fi
+fi
+
+echo "Built $OUTPATH"
+
+# Best-effort check: nothing should be left unresolved.
+if [ "$OS" = linux ] && command -v ldd >/dev/null 2>&1; then
+    MISSING=$(ldd -r "$OUTPATH" 2>&1 | grep "undefined symbol" || true)
+    if [ -n "$MISSING" ]; then
+        echo "warning: unresolved symbols remain — the module may fail to load:" >&2
+        echo "$MISSING" | sed 's/^/  /' | head -20 >&2
+        echo "  (a needed dependency library is probably missing; install it and rebuild)" >&2
+        exit 1
+    fi
+fi
+echo "OK: all symbols resolved"

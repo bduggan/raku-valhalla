@@ -23,6 +23,10 @@ jobs:
         with:
           raku-version: ${{ matrix.raku-version }}
       - name: Build shared library (in Valhalla container)
+        # Build inside the Valhalla container (which has libvalhalla), then run
+        # tests on the bare runner (which does not). VALHALLA_USE_STATIC=1 bakes
+        # libvalhalla.a into the shim so it loads without libvalhalla present.
+        # make-lib is plain bash, so no Raku is needed in the container.
         run: |
           mkdir -p resources/libraries
           docker run --rm -v "$PWD:/w" -w /w ghcr.io/valhalla/valhalla:latest bash -c '
@@ -32,14 +36,7 @@ jobs:
               clang pkg-config \
               zlib1g-dev libprotobuf-dev libzmq3-dev libczmq-dev libcurl4-openssl-dev libboost-dev \
               libspatialite-dev libsqlite3-dev libluajit-5.1-dev libgeos-dev libssl-dev libtiff-dev liblz4-dev
-            CFLAGS=$(pkg-config --cflags libvalhalla)
-            clang++ -std=c++20 -fPIC -shared \
-              -o resources/libraries/libvalhalla_c.so \
-              valhalla_c_api.cpp \
-              $CFLAGS \
-              -L/usr/local/lib \
-              -Wl,-Bstatic -lvalhalla -Wl,-Bdynamic \
-              -lprotobuf-lite -lzmq -lz -lcurl -lssl -lcrypto
+            CXX=clang++ VALHALLA_USE_STATIC=1 ./make-lib
             chown -R $(stat -c "%u:%g" /w) resources/libraries
           '
       - name: Install runtime dependencies
