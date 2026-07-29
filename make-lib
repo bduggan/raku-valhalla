@@ -32,6 +32,16 @@ case "$(uname -s)" in
     *)      OS=linux; OUT=libvalhalla_c.so;    SHFLAGS="-shared -fPIC" ;;
 esac
 
+# Valhalla's public headers include Boost's, but libvalhalla.pc only reports
+# Valhalla's own -I. On macOS the Homebrew prefix (/opt/homebrew on Apple
+# silicon, /usr/local on Intel) isn't searched by default, so <boost/...> is
+# not found unless we say where it is.
+BREW_FLAGS=""
+if [ "$OS" = mac ] && command -v brew >/dev/null 2>&1; then
+    BREW_PREFIX=$(brew --prefix)
+    BREW_FLAGS="-I$BREW_PREFIX/include -L$BREW_PREFIX/lib"
+fi
+
 # Compiler: honor $CXX, else clang++ on mac / g++ on linux, else whatever's around.
 if [ -z "${CXX:-}" ]; then
     if [ "$OS" = mac ]; then CXX=clang++; else CXX=g++; fi
@@ -52,7 +62,8 @@ STATIC="$LIBDIR/libvalhalla.a"
 
 # Does the toolchain resolve `-l$1`?  (cheap existence probe)
 have_lib() {
-    echo 'int main(){return 0;}' | "$CXX" -x c++ - "-L$LIBDIR" "-l$1" -o /dev/null 2>/dev/null
+    # shellcheck disable=SC2086
+    echo 'int main(){return 0;}' | "$CXX" -x c++ - $BREW_FLAGS "-L$LIBDIR" "-l$1" -o /dev/null 2>/dev/null
 }
 
 # Optional deps Valhalla may reference; linked only if present on this box.
@@ -64,7 +75,7 @@ for l in $CANDIDATES; do
     have_lib "$l" && DEPS="$DEPS -l$l"
 done
 
-COMMON="-std=c++20 $CFLAGS -L$LIBDIR"
+COMMON="-std=c++20 $CFLAGS $BREW_FLAGS -L$LIBDIR"
 
 # Link against the shared libvalhalla: small shim, Valhalla loaded at runtime
 # (so libvalhalla.so/.dylib must be findable then, via the rpath below).

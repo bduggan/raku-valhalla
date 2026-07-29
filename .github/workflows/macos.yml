@@ -1,22 +1,30 @@
 name: MacOS
 
+# push covers the default branch; every other branch is already covered by
+# pull_request. Listing both for all branches ran each PR commit twice.
 on:
   push:
-    branches:
-      - '*'
-    tags-ignore:
-      - '*'
+    branches: [main]
   pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  VALHALLA_PREFIX: /usr/local/valhalla
 
 jobs:
   raku:
+    runs-on: macos-latest
+    timeout-minutes: 90
     strategy:
+      fail-fast: false
       matrix:
-        os:
-          - macos-latest
-        raku-version:
-          - 'latest'
-    runs-on: ${{ matrix.os }}
+        raku-version: ['latest']
     steps:
       - uses: actions/checkout@v4
 
@@ -24,51 +32,36 @@ jobs:
         with:
           raku-version: ${{ matrix.raku-version }}
 
-      - name: Install build dependencies
-        run: |
-          brew update
-          brew install \
-            automake cmake libtool protobuf protobuf-c libspatialite pkg-config \
-            sqlite3 jq curl wget czmq lz4 spatialite-tools unzip luajit boost \
-            autoconf zmq
+      # One source of truth for the version, shared with the Linux workflow.
+      - name: Pin Valhalla version
+        run: echo "VALHALLA_VERSION=$(cat .github/valhalla-version)" >> "$GITHUB_ENV"
 
+      - name: Install build dependencies
+        run: .github/scripts/macos-install-deps.sh
+
+      # Keyed on the version *and* the build recipe, so changing the cmake flags
+      # rebuilds instead of silently restoring the previous build.
       - name: Cache Valhalla install
         id: cache-valhalla
         uses: actions/cache@v4
         with:
-          path: /usr/local/valhalla
-          key: valhalla-${{ runner.os }}-${{ runner.arch }}-valhalla-3.7.0-shared
+          path: ${{ env.VALHALLA_PREFIX }}
+          key: valhalla-${{ runner.os }}-${{ runner.arch }}-${{ env.VALHALLA_VERSION }}-${{ hashFiles('.github/scripts/macos-install-valhalla.sh') }}
 
       - name: Build and install Valhalla
         if: steps.cache-valhalla.outputs.cache-hit != 'true'
+        run: .github/scripts/macos-install-valhalla.sh
+
+      - name: Expose Valhalla to pkg-config and the loader
         run: |
-          git clone --recurse-submodules --branch 3.7.0 --depth 1 \
-            https://github.com/valhalla/valhalla.git
-          cd valhalla
-          cmake -B build \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX=/usr/local/valhalla \
-            -DCMAKE_CXX_FLAGS=-Wno-error=deprecated-declarations \
-            -DBUILD_SHARED_LIBS=ON \
-            -DENABLE_TESTS=OFF \
-            -DENABLE_BENCHMARKS=OFF \
-            -DENABLE_PYTHON_BINDINGS=OFF \
-            -DENABLE_SERVICES=OFF \
-            -DENABLE_TOOLS=OFF \
-            -DENABLE_HTTP=OFF
-          make -C build -j$(sysctl -n hw.physicalcpu)
-          sudo make -C build install
+          echo "PKG_CONFIG_PATH=$VALHALLA_PREFIX/lib/pkgconfig" >> "$GITHUB_ENV"
+          echo "DYLD_LIBRARY_PATH=$GITHUB_WORKSPACE/resources/libraries:$VALHALLA_PREFIX/lib" >> "$GITHUB_ENV"
 
-      - name: Expose Valhalla to pkg-config and linker
-        run: |
-          echo "PKG_CONFIG_PATH=/usr/local/valhalla/lib/pkgconfig" >> $GITHUB_ENV
-          echo "DYLD_LIBRARY_PATH=${{ github.workspace }}/resources/libraries:/usr/local/valhalla/lib" >> $GITHUB_ENV
+      - name: Build native shim
+        run: ./make-lib
 
-      - name: Build dylib
-        run: ./make dylib
-
-      - name: Install Raku Dependencies
+      - name: Install Raku dependencies
         run: zef install --deps-only .
 
-      - name: Run Tests
+      - name: Run tests
         run: zef test -v .

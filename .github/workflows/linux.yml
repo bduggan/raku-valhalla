@@ -1,65 +1,44 @@
 name: Linux
 
+# push covers the default branch; every other branch is already covered by
+# pull_request. Listing both for all branches ran each PR commit twice.
 on:
   push:
-    branches:
-      - '*'
-    tags-ignore:
-      - '*'
+    branches: [main]
   pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   raku:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
+      fail-fast: false
       matrix:
-        os:
-          - ubuntu-latest
-        raku-version:
-          - 'latest'
-    runs-on: ${{ matrix.os }}
+        raku-version: ['latest']
     steps:
       - uses: actions/checkout@v4
+
       - uses: Raku/setup-raku@v1
         with:
           raku-version: ${{ matrix.raku-version }}
-      - name: Build shared library (in Valhalla container)
-        # Build inside the Valhalla container (which has libvalhalla), then run
-        # tests on the bare runner (which does not). VALHALLA_USE_STATIC=1 bakes
-        # libvalhalla.a into the shim so Valhalla itself needs no runtime lib.
-        # The shim still has ordinary shared deps (prime_server, geos, sqlite,
-        # ...) that exist in the container but not on the runner — prime_server
-        # in particular isn't in apt — so we bundle every non-glibc shared lib
-        # the shim needs into resources/libraries, which is on LD_LIBRARY_PATH at
-        # test time. make-lib is plain bash, so no Raku is needed in the container.
-        run: |
-          mkdir -p resources/libraries
-          docker run --rm -v "$PWD:/w" -w /w ghcr.io/valhalla/valhalla:latest bash -c '
-            set -e
-            apt-get -qq update
-            DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-              clang pkg-config \
-              zlib1g-dev libprotobuf-dev libzmq3-dev libczmq-dev libcurl4-openssl-dev libboost-dev \
-              libspatialite-dev libsqlite3-dev libluajit-5.1-dev libgeos-dev libssl-dev libtiff-dev liblz4-dev \
-              libgeotiff-dev libproj-dev
-            CXX=clang++ VALHALLA_USE_STATIC=1 ./make-lib
-            # Bundle the shim'"'"'s shared-lib deps beside it. Skip the glibc/loader
-            # core, which must come from the runner to match its kernel.
-            for so in $(ldd resources/libraries/libvalhalla_c.so | sed -n "s/.*=> \(\/[^ ]*\).*/\1/p"); do
-              case "$so" in
-                *ld-linux*|*/libc.so.*|*/libm.so.*|*/libdl.so.*|*/libpthread.so.*|*/librt.so.*|*/libresolv.so.*) continue ;;
-              esac
-              cp -n "$so" resources/libraries/
-            done
-            echo "bundled:"; ls -1 resources/libraries/
-            chown -R $(stat -c "%u:%g" /w) resources/libraries
-          '
+
+      - name: Build native shim
+        run: .github/scripts/linux-build.sh
+
       - name: Install runtime dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libprotobuf-lite32t64 libzmq5 zlib1g libcurl4 libssl3
-      - name: Install Raku Dependencies
+        run: .github/scripts/linux-install-runtime-deps.sh
+
+      - name: Install Raku dependencies
         run: zef install --deps-only .
-      - name: Run Tests
+
+      - name: Run tests
         env:
           LD_LIBRARY_PATH: ${{ github.workspace }}/resources/libraries
         run: zef test -v .
