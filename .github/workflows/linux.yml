@@ -2,53 +2,60 @@ name: Linux
 
 on:
   push:
-    branches:
-      - '*'
-    tags-ignore:
-      - '*'
+    branches: [main]
   pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   raku:
-    strategy:
-      matrix:
-        os:
-          - ubuntu-latest
-        raku-version:
-          - 'latest'
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # The official Valhalla image has libvalhalla preinstalled, so the build
+    # here is the same as the README's: install Valhalla, run ./make lib.
+    # Keep the version in sync with macos.yml.
+    container: ghcr.io/valhalla/valhalla:3.7.0
     steps:
       - uses: actions/checkout@v4
+
+      # The apt list from valhalla's scripts/install-linux-deps.sh (3.7.0),
+      # verbatim. That script then builds prime_server from git master, which
+      # we must NOT do: the image already ships the prime_server its
+      # libvalhalla.a was compiled against, and a newer one breaks the link.
+      - name: Install Valhalla build dependencies
+        run: |
+          apt-get -qq update
+          DEBIAN_FRONTEND=noninteractive apt-get install -qq -y --quiet \
+            autoconf automake ccache clang clang-tidy coreutils curl cmake \
+            g++ gcc git jq lcov libboost-all-dev libcurl4-openssl-dev \
+            libczmq-dev libgdal-dev libgeos++-dev libgeos-dev \
+            libluajit-5.1-dev liblz4-dev libprotobuf-dev libspatialite-dev \
+            libsqlite3-dev libsqlite3-mod-spatialite libtool libzmq3-dev lld \
+            locales luajit make osmium-tool parallel pkgconf \
+            protobuf-compiler python3-all-dev python3-shapely \
+            python3-requests python3-pip spatialite-bin unzip zlib1g-dev
+
+      # The shim links libgeotiff directly: it is on by default in Valhalla
+      # but absent from libvalhalla.pc, and missing from the list above.
+      - name: Install shim link dependencies
+        run: |
+          DEBIAN_FRONTEND=noninteractive apt-get install -qq -y --no-install-recommends \
+            libgeotiff-dev
+
       - uses: Raku/setup-raku@v1
         with:
-          raku-version: ${{ matrix.raku-version }}
-      - name: Build shared library (in Valhalla container)
-        run: |
-          mkdir -p resources/libraries
-          docker run --rm -v "$PWD:/w" -w /w ghcr.io/valhalla/valhalla:latest bash -c '
-            set -e
-            apt-get -qq update
-            DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-              clang pkg-config \
-              zlib1g-dev libprotobuf-dev libzmq3-dev libczmq-dev libcurl4-openssl-dev libboost-dev \
-              libspatialite-dev libsqlite3-dev libluajit-5.1-dev libgeos-dev libssl-dev libtiff-dev liblz4-dev
-            CFLAGS=$(pkg-config --cflags libvalhalla)
-            clang++ -std=c++20 -fPIC -shared \
-              -o resources/libraries/libvalhalla_c.so \
-              valhalla_c_api.cpp \
-              $CFLAGS \
-              -L/usr/local/lib \
-              -Wl,-Bstatic -lvalhalla -Wl,-Bdynamic \
-              -lprotobuf-lite -lzmq -lz -lcurl -lssl -lcrypto
-            chown -R $(stat -c "%u:%g" /w) resources/libraries
-          '
-      - name: Install runtime dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libprotobuf-lite32t64 libzmq5 zlib1g libcurl4 libssl3
-      - name: Install Raku Dependencies
+          raku-version: latest
+
+      - name: Build native shim
+        run: ./make-lib
+
+      - name: Install Raku dependencies
         run: zef install --deps-only .
-      - name: Run Tests
-        env:
-          LD_LIBRARY_PATH: ${{ github.workspace }}/resources/libraries
+
+      - name: Run tests
         run: zef test -v .

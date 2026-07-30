@@ -92,14 +92,18 @@ Here is a more complete example of drawing a route between two places, with turn
     leaf.add-geojson: polyline6-to-geojson($res<trip><legs>[0]<shape>), style => { weight => 10 };
     leaf.show;
 
-![directions](https://raw.githubusercontent.com/bduggan/raku-valhalla/images/img/directions.png)
+<img width="1156" height="655" alt="Image" src="https://github.com/user-attachments/assets/562e299a-772e-4885-9874-1e2e0500087d" />
 
 INSTALLATION
 ============
 
-Installing Valhalla itself is documented [here](https://valhalla.github.io/valhalla/building/).
+Installing Valhalla itself is documented [here](https://valhalla.github.io/valhalla/building/). The official docker image, `ghcr.io/valhalla/valhalla`, comes with it preinstalled.
 
-You will likely need to compile from source to get the .so or .dylib. After this, run `./make-dylib` in this repository.
+Once Valhalla is installed, build the small C shim that this module loads:
+
+    ./make lib
+
+This builds `resources/libraries/libvalhalla_c.so` (`.dylib` on macOS), linking against the shared `libvalhalla` if one is present, or the static `libvalhalla.a` otherwise. Valhalla is located with `pkg-config`, so set `PKG_CONFIG_PATH` if `libvalhalla.pc` lives somewhere non-standard.
 
 Note that this module wraps Valhalla's C++ with a C API, which is similar to mechanisms used by the other bindings.
 

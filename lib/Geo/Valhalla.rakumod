@@ -110,10 +110,18 @@ Here is a more complete example of drawing a route between two places, with turn
 
 =head1 INSTALLATION
 
-Installing Valhalla itself is documented L<here|https://valhalla.github.io/valhalla/building/>.
+Installing Valhalla itself is documented
+L<here|https://valhalla.github.io/valhalla/building/>. The official docker
+image, C<ghcr.io/valhalla/valhalla>, comes with it preinstalled.
 
-You will likely need to compile from source to get the .so or .dylib.  After this,
-run `./make-dylib` in this repository.
+Once Valhalla is installed, build the small C shim that this module loads:
+
+  ./make lib
+
+This builds C<resources/libraries/libvalhalla_c.so> (C<.dylib> on macOS),
+linking against the shared C<libvalhalla> if one is present, or the static
+C<libvalhalla.a> otherwise. Valhalla is located with C<pkg-config>, so set
+C<PKG_CONFIG_PATH> if C<libvalhalla.pc> lives somewhere non-standard.
 
 Note that this module wraps Valhalla's C++ with a C API, which is similar to mechanisms
 used by the other bindings.

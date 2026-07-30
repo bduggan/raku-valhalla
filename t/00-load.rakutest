@@ -1,0 +1,22 @@
+use Test;
+
+# Smoke test for the native shim built by `./make lib`. Unlike the routing
+# tests, this needs no tile data or VALHALLA_CONF — it just proves the shared
+# library was built and that NativeCall can dlopen it and bind a symbol. If the
+# link left any symbol unresolved (a missing dependency), loading fails here.
+
+plan 3;
+
+use-ok 'Geo::Valhalla::Native', 'module compiles and locates the native shim';
+
+use Geo::Valhalla::Native;
+
+ok defined(&valhalla_reader_create), 'native sub valhalla_reader_create is bound';
+
+# Calling it forces the shim to load. The C wrapper catches all exceptions and
+# returns a null pointer for a bad config path, so this exercises dlopen +
+# symbol resolution without needing a real Valhalla config.
+my $reader = valhalla_reader_create('/nonexistent/valhalla.json');
+nok $reader, 'shim loads and returns a null reader for a bogus config';
+
+done-testing;

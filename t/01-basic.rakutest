@@ -6,7 +6,7 @@ plan 3;
 my $conf = %*ENV<VALHALLA_CONF>;
 
 unless $conf.?IO.e {
-  skip-rest "Valhalla configuration file not found: $conf";
+  skip-rest "Valhalla configuration file not found: {$conf // 'VALHALLA_CONF not set'}";
   exit;
 }
 

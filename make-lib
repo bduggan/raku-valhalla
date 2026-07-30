@@ -1,0 +1,97 @@
+#!/bin/bash
+# Build resources/libraries/libvalhalla_c.{so,dylib} — the C shim that Raku's
+# NativeCall loads.
+#
+# Prerequisite: an installed Valhalla, per
+# https://valhalla.github.io/valhalla/building/ — found via pkg-config
+# (set PKG_CONFIG_PATH if libvalhalla.pc lives somewhere non-standard).
+#
+# Links the shared libvalhalla if one is installed; otherwise links the static
+# libvalhalla.a, with its dependencies taken from `pkg-config --static`.
+set -e
+
+: "${PKG_CONFIG_PATH:=/usr/local/lib/pkgconfig}"
+export PKG_CONFIG_PATH
+
+if ! pkg-config --exists libvalhalla; then
+    echo "error: pkg-config can't find libvalhalla -- is Valhalla installed?" >&2
+    echo "       try: PKG_CONFIG_PATH=/path/to/lib/pkgconfig $0" >&2
+    exit 1
+fi
+
+CFLAGS=$(pkg-config --cflags libvalhalla)
+LIBDIR=$(pkg-config --variable=libdir libvalhalla)
+: "${CXX:=c++}"
+
+case "$(uname -s)" in
+    Darwin) OUT=libvalhalla_c.dylib; EXT=dylib; SHFLAGS="-dynamiclib" ;;
+    *)      OUT=libvalhalla_c.so;    EXT=so;    SHFLAGS="-shared -fPIC" ;;
+esac
+
+EXTRA=""
+if [ "$EXT" = dylib ] && command -v brew >/dev/null 2>&1; then
+    # Valhalla's headers include Boost's, and Homebrew's prefix isn't searched
+    # by default.
+    EXTRA="-I$(brew --prefix)/include -L$(brew --prefix)/lib"
+fi
+
+# Valhalla's cmake install writes a broken libvalhalla.dylib symlink on macOS
+# (points at libvalhalla.dylib.3 instead of libvalhalla.3.dylib), which makes
+# -lvalhalla fall back to the stale libvalhalla.a. Repair it.
+if [ "$EXT" = dylib ] && [ ! -e "$LIBDIR/libvalhalla.dylib" ]; then
+    REAL=$(ls "$LIBDIR"/libvalhalla.*.dylib 2>/dev/null | head -1 || true)
+    if [ -n "$REAL" ]; then
+        echo "repairing $LIBDIR/libvalhalla.dylib -> $(basename "$REAL")"
+        ln -sf "$(basename "$REAL")" "$LIBDIR/libvalhalla.dylib" 2>/dev/null \
+            || sudo ln -sf "$(basename "$REAL")" "$LIBDIR/libvalhalla.dylib"
+    fi
+fi
+
+if [ -e "$LIBDIR/libvalhalla.$EXT" ]; then
+    echo "linking shared libvalhalla"
+    LIBS=$(pkg-config --libs libvalhalla)
+elif [ -e "$LIBDIR/libvalhalla.a" ]; then
+    echo "linking static libvalhalla.a"
+    # Only libvalhalla itself is linked statically; its dependencies stay
+    # shared. So take libvalhalla's own libs and Libs.private, plus the
+    # ordinary (shared) --libs of its Requires.private packages -- but not
+    # `pkg-config --static`'s full recursive closure, which would demand
+    # static-ready dev packages for every transitive dependency.
+    PC=$(pkg-config --path libvalhalla)
+    PRIVATE_PKGS=$(pkg-config --print-requires-private libvalhalla | cut -d' ' -f1)
+    RAW="$(pkg-config --libs libvalhalla) \
+         $(sed -n 's/^Libs\.private:*//p' "$PC") \
+         $([ -n "$PRIVATE_PKGS" ] && pkg-config --libs $PRIVATE_PKGS)"
+
+    # The official image's libvalhalla.pc also lists some archives by bare
+    # build-tree name (e.g. "libprotokit.a") that were never installed.
+    # Resolve those against $LIBDIR when possible, and drop the rest.
+    LIBS=""
+    for tok in $RAW; do
+        case "$tok" in
+            -*) LIBS="$LIBS $tok" ;;
+            *.a|*.so|*.so.*)
+                if [ -e "$tok" ]; then
+                    LIBS="$LIBS $tok"
+                elif [ -e "$LIBDIR/$(basename -- "$tok")" ]; then
+                    LIBS="$LIBS $LIBDIR/$(basename -- "$tok")"
+                else
+                    echo "note: skipping $tok (not installed)" >&2
+                fi ;;
+            *)  LIBS="$LIBS $tok" ;;
+        esac
+    done
+    # Valhalla's Libs.private omits libgeotiff, which its elevation support
+    # uses; with only the static archive, every symbol must resolve here.
+    LIBS="$LIBS -lgeotiff"
+    [ "$EXT" = so ] && LIBS="$LIBS -Wl,--no-undefined"
+else
+    echo "error: no libvalhalla.$EXT or libvalhalla.a in $LIBDIR" >&2
+    exit 1
+fi
+
+mkdir -p resources/libraries
+$CXX -std=c++20 $SHFLAGS -o "resources/libraries/$OUT" valhalla_c_api.cpp \
+    $CFLAGS $EXTRA $LIBS -Wl,-rpath,"$LIBDIR"
+
+echo "Built resources/libraries/$OUT"
