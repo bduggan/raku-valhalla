@@ -52,7 +52,23 @@ if [ -e "$LIBDIR/libvalhalla.$EXT" ]; then
     LIBS=$(pkg-config --libs libvalhalla)
 elif [ -e "$LIBDIR/libvalhalla.a" ]; then
     echo "linking static libvalhalla.a"
-    LIBS=$(pkg-config --libs --static libvalhalla)
+    # Libs.private in the official image's libvalhalla.pc lists some archives
+    # by bare build-tree name (e.g. "libprotokit.a") that were never installed.
+    # Resolve those against $LIBDIR when possible, and drop the rest.
+    LIBS=""
+    for tok in $(pkg-config --libs --static libvalhalla); do
+        case "$tok" in
+            *.a|*.so|*.so.*)
+                if [ -e "$tok" ]; then
+                    LIBS="$LIBS $tok"
+                elif [ -e "$LIBDIR/$(basename "$tok")" ]; then
+                    LIBS="$LIBS $LIBDIR/$(basename "$tok")"
+                else
+                    echo "note: skipping $tok (not installed)" >&2
+                fi ;;
+            *)  LIBS="$LIBS $tok" ;;
+        esac
+    done
 else
     echo "error: no libvalhalla.$EXT or libvalhalla.a in $LIBDIR" >&2
     exit 1
