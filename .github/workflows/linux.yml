@@ -23,6 +23,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Valhalla's build deps, plus (last line) libcurl's own deps, which
+      # `pkg-config --static libvalhalla` pulls in transitively.
       - name: Install build dependencies
         run: |
           apt-get -qq update
@@ -31,7 +33,9 @@ jobs:
             libboost-dev libcurl4-openssl-dev libczmq-dev libgeos-dev \
             libgeotiff-dev libluajit-5.1-dev liblz4-dev libproj-dev \
             libprotobuf-dev libspatialite-dev libsqlite3-dev libssl-dev \
-            libtiff-dev libzmq3-dev zlib1g-dev
+            libtiff-dev libzmq3-dev zlib1g-dev \
+            libbrotli-dev libidn2-dev libldap-dev libnghttp2-dev libpsl-dev \
+            librtmp-dev libssh-dev
 
       - uses: Raku/setup-raku@v1
         with:
