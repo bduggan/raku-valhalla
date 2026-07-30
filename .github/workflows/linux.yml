@@ -1,7 +1,5 @@
 name: Linux
 
-# push covers the default branch; every other branch is already covered by
-# pull_request. Listing both for all branches ran each PR commit twice.
 on:
   push:
     branches: [main]
@@ -18,27 +16,32 @@ jobs:
   raku:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        raku-version: ['latest']
+    # The official Valhalla image has libvalhalla preinstalled, so the build
+    # here is the same as the README's: install Valhalla, run ./make lib.
+    # Keep the version in sync with macos.yml.
+    container: ghcr.io/valhalla/valhalla:3.7.0
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install build dependencies
+        run: |
+          apt-get -qq update
+          DEBIAN_FRONTEND=noninteractive apt-get install -qq -y --no-install-recommends \
+            build-essential pkg-config git curl ca-certificates \
+            libboost-dev libcurl4-openssl-dev libczmq-dev libgeos-dev \
+            libgeotiff-dev libluajit-5.1-dev liblz4-dev libproj-dev \
+            libprotobuf-dev libspatialite-dev libsqlite3-dev libssl-dev \
+            libtiff-dev libzmq3-dev zlib1g-dev
+
       - uses: Raku/setup-raku@v1
         with:
-          raku-version: ${{ matrix.raku-version }}
+          raku-version: latest
 
       - name: Build native shim
-        run: .github/scripts/linux-build.sh
-
-      - name: Install runtime dependencies
-        run: .github/scripts/linux-install-runtime-deps.sh
+        run: ./make-lib
 
       - name: Install Raku dependencies
         run: zef install --deps-only .
 
       - name: Run tests
-        env:
-          LD_LIBRARY_PATH: ${{ github.workspace }}/resources/libraries
         run: zef test -v .

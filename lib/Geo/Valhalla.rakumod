@@ -110,26 +110,18 @@ Here is a more complete example of drawing a route between two places, with turn
 
 =head1 INSTALLATION
 
-Installing Valhalla itself is documented L<here|https://valhalla.github.io/valhalla/building/>.
+Installing Valhalla itself is documented
+L<here|https://valhalla.github.io/valhalla/building/>. The official docker
+image, C<ghcr.io/valhalla/valhalla>, comes with it preinstalled.
 
-Once Valhalla is installed, build the native shim with:
+Once Valhalla is installed, build the small C shim that this module loads:
 
   ./make lib
 
-This detects your platform (building C<libvalhalla_c.so> on Linux or
-C<libvalhalla_c.dylib> on macOS) and how Valhalla is installed. By default it
-links against the shared C<libvalhalla> if one is present, otherwise it links
-the static C<libvalhalla.a> into the shim. Either way it discovers Valhalla via
-C<pkg-config> (set C<PKG_CONFIG_PATH> if C<libvalhalla.pc> lives somewhere
-non-standard).
-
-To force linking the static C<libvalhalla.a> even when a shared library is also
-installed — producing a self-contained shim that needs no C<libvalhalla> at
-runtime — set:
-
-  VALHALLA_USE_STATIC=1 ./make lib
-
-The static archive is only used at build time; it is never shipped.
+This builds C<resources/libraries/libvalhalla_c.so> (C<.dylib> on macOS),
+linking against the shared C<libvalhalla> if one is present, or the static
+C<libvalhalla.a> otherwise. Valhalla is located with C<pkg-config>, so set
+C<PKG_CONFIG_PATH> if C<libvalhalla.pc> lives somewhere non-standard.
 
 Note that this module wraps Valhalla's C++ with a C API, which is similar to mechanisms
 used by the other bindings.
