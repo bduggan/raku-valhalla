@@ -23,13 +23,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Valhalla's own dependency script, per docs/building.md, from the same
-      # pinned version as the image.
+      # The apt list from valhalla's scripts/install-linux-deps.sh (3.7.0),
+      # verbatim. That script then builds prime_server from git master, which
+      # we must NOT do: the image already ships the prime_server its
+      # libvalhalla.a was compiled against, and a newer one breaks the link.
       - name: Install Valhalla build dependencies
         run: |
           apt-get -qq update
-          DEBIAN_FRONTEND=noninteractive apt-get install -qq -y sudo curl ca-certificates
-          curl -sSf https://raw.githubusercontent.com/valhalla/valhalla/3.7.0/scripts/install-linux-deps.sh | bash
+          DEBIAN_FRONTEND=noninteractive apt-get install -qq -y --quiet \
+            autoconf automake ccache clang clang-tidy coreutils curl cmake \
+            g++ gcc git jq lcov libboost-all-dev libcurl4-openssl-dev \
+            libczmq-dev libgdal-dev libgeos++-dev libgeos-dev \
+            libluajit-5.1-dev liblz4-dev libprotobuf-dev libspatialite-dev \
+            libsqlite3-dev libsqlite3-mod-spatialite libtool libzmq3-dev lld \
+            locales luajit make osmium-tool parallel pkgconf \
+            protobuf-compiler python3-all-dev python3-shapely \
+            python3-requests python3-pip spatialite-bin unzip zlib1g-dev
 
       # The image ships only the static libvalhalla.a, so `pkg-config --static`
       # also asks for libcurl's private deps, and the shim links libgeotiff
