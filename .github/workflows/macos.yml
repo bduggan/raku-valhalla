@@ -28,14 +28,11 @@ jobs:
         with:
           raku-version: latest
 
-      # Dependencies per https://valhalla.github.io/valhalla/building/
+      # The brew line from docs/building.md, verbatim.
       - name: Install build dependencies
         run: |
           brew update
-          brew install \
-            autoconf automake boost cmake curl czmq jq libspatialite libtool \
-            luajit lz4 pkg-config protobuf spatialite-tools sqlite3 unzip \
-            wget zmq
+          brew install automake cmake libtool protobuf protobuf-c libspatialite pkg-config sqlite3 jq curl wget czmq lz4 spatialite-tools unzip luajit boost
 
       # There is no Homebrew formula for Valhalla, so build it from source per
       # its build docs. That takes tens of minutes, hence the cache.

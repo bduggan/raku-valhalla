@@ -23,19 +23,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Valhalla's build deps, plus (last line) libcurl's own deps, which
-      # `pkg-config --static libvalhalla` pulls in transitively.
-      - name: Install build dependencies
+      # Valhalla's own dependency script, per docs/building.md, from the same
+      # pinned version as the image.
+      - name: Install Valhalla build dependencies
         run: |
           apt-get -qq update
+          DEBIAN_FRONTEND=noninteractive apt-get install -qq -y sudo curl ca-certificates
+          curl -sSf https://raw.githubusercontent.com/valhalla/valhalla/3.7.0/scripts/install-linux-deps.sh | bash
+
+      # The image ships only the static libvalhalla.a, so `pkg-config --static`
+      # also asks for libcurl's private deps, and the shim links libgeotiff
+      # (on by default in Valhalla but absent from its Libs.private).
+      - name: Install shim link dependencies
+        run: |
           DEBIAN_FRONTEND=noninteractive apt-get install -qq -y --no-install-recommends \
-            build-essential pkg-config git curl ca-certificates \
-            libboost-dev libcurl4-openssl-dev libczmq-dev libgeos-dev libgeos++-dev \
-            libgeotiff-dev libluajit-5.1-dev liblz4-dev libproj-dev \
-            libprotobuf-dev libspatialite-dev libsqlite3-dev libssl-dev \
-            libtiff-dev libzmq3-dev zlib1g-dev \
-            libbrotli-dev libidn2-dev libldap-dev libnghttp2-dev libpsl-dev \
-            librtmp-dev libssh-dev
+            libgeotiff-dev libbrotli-dev libidn2-dev libldap-dev \
+            libnghttp2-dev libpsl-dev librtmp-dev libssh-dev
 
       - uses: Raku/setup-raku@v1
         with:

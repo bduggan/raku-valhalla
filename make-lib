@@ -69,6 +69,10 @@ elif [ -e "$LIBDIR/libvalhalla.a" ]; then
             *)  LIBS="$LIBS $tok" ;;
         esac
     done
+    # Valhalla's Libs.private omits libgeotiff, which its elevation support
+    # uses; with only the static archive, every symbol must resolve here.
+    LIBS="$LIBS -lgeotiff"
+    [ "$EXT" = so ] && LIBS="$LIBS -Wl,--no-undefined"
 else
     echo "error: no libvalhalla.$EXT or libvalhalla.a in $LIBDIR" >&2
     exit 1
