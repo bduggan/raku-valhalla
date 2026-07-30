@@ -40,14 +40,12 @@ jobs:
             protobuf-compiler python3-all-dev python3-shapely \
             python3-requests python3-pip spatialite-bin unzip zlib1g-dev
 
-      # The image ships only the static libvalhalla.a, so `pkg-config --static`
-      # also asks for libcurl's private deps, and the shim links libgeotiff
-      # (on by default in Valhalla but absent from its Libs.private).
+      # The shim links libgeotiff directly: it is on by default in Valhalla
+      # but absent from libvalhalla.pc, and missing from the list above.
       - name: Install shim link dependencies
         run: |
           DEBIAN_FRONTEND=noninteractive apt-get install -qq -y --no-install-recommends \
-            libgeotiff-dev libbrotli-dev libidn2-dev libldap-dev \
-            libnghttp2-dev libpsl-dev librtmp-dev libssh-dev
+            libgeotiff-dev
 
       - uses: Raku/setup-raku@v1
         with:

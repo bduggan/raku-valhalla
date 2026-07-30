@@ -52,17 +52,29 @@ if [ -e "$LIBDIR/libvalhalla.$EXT" ]; then
     LIBS=$(pkg-config --libs libvalhalla)
 elif [ -e "$LIBDIR/libvalhalla.a" ]; then
     echo "linking static libvalhalla.a"
-    # Libs.private in the official image's libvalhalla.pc lists some archives
-    # by bare build-tree name (e.g. "libprotokit.a") that were never installed.
+    # Only libvalhalla itself is linked statically; its dependencies stay
+    # shared. So take libvalhalla's own libs and Libs.private, plus the
+    # ordinary (shared) --libs of its Requires.private packages -- but not
+    # `pkg-config --static`'s full recursive closure, which would demand
+    # static-ready dev packages for every transitive dependency.
+    PC=$(pkg-config --path libvalhalla)
+    PRIVATE_PKGS=$(pkg-config --print-requires-private libvalhalla | cut -d' ' -f1)
+    RAW="$(pkg-config --libs libvalhalla) \
+         $(sed -n 's/^Libs\.private:*//p' "$PC") \
+         $([ -n "$PRIVATE_PKGS" ] && pkg-config --libs $PRIVATE_PKGS)"
+
+    # The official image's libvalhalla.pc also lists some archives by bare
+    # build-tree name (e.g. "libprotokit.a") that were never installed.
     # Resolve those against $LIBDIR when possible, and drop the rest.
     LIBS=""
-    for tok in $(pkg-config --libs --static libvalhalla); do
+    for tok in $RAW; do
         case "$tok" in
+            -*) LIBS="$LIBS $tok" ;;
             *.a|*.so|*.so.*)
                 if [ -e "$tok" ]; then
                     LIBS="$LIBS $tok"
-                elif [ -e "$LIBDIR/$(basename "$tok")" ]; then
-                    LIBS="$LIBS $LIBDIR/$(basename "$tok")"
+                elif [ -e "$LIBDIR/$(basename -- "$tok")" ]; then
+                    LIBS="$LIBS $LIBDIR/$(basename -- "$tok")"
                 else
                     echo "note: skipping $tok (not installed)" >&2
                 fi ;;
