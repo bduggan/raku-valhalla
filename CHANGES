@@ -1,3 +1,8 @@
+0.0.4 2026-07-31
+  - refactor make lib to work better
+  - better support for build using .a or .so on linux
+  - update CI build pipeline
+
 0.0.3 2026-07-19
   - fix image link in readme
 
