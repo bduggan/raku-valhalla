@@ -1,4 +1,4 @@
 resources/libraries/libvalhalla_c.dylib
 resources/libraries/libvalhalla_c.so
-lib/.precomp/
+.precomp
 *-tmp.*
